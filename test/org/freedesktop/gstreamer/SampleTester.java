@@ -37,66 +37,66 @@ import org.freedesktop.gstreamer.glib.GError;
  * pipeline that is fed by a video test source.
  */
 public class SampleTester {
-	public static void test(Consumer<Sample> callback) {
-		new SampleTester(callback);
-	}
+    public static void test(Consumer<Sample> callback) {
+        new SampleTester(callback);
+    }
 
     private static class NewSampleListener implements AppSink.NEW_SAMPLE {
-    	private Consumer<Sample> callback;
-    	Throwable exception;
+        private Consumer<Sample> callback;
+        Throwable exception;
 
-		NewSampleListener(Consumer<Sample> callback) {
-    		this.callback = callback;
-    	}
-		
-		@Override
-		public FlowReturn newSample(AppSink appSink) {
-			if (callback != null) {
-				Sample sample = appSink.pullSample();
-				try {
-					// Run the client's test logic on the sample (only once)
-					try {
-						callback.accept(sample);
-					}
-					catch (Throwable exc) {
-						exception = exc;
-					}
-					callback = null;
-				}
-				finally {
-					synchronized (this) {
-						notify();
-					}
-					sample.dispose();
-				}
-			}
-			return FlowReturn.OK;
-		}
+        NewSampleListener(Consumer<Sample> callback) {
+            this.callback = callback;
+        }
+
+        @Override
+        public FlowReturn newSample(AppSink appSink) {
+            if (callback != null) {
+                Sample sample = appSink.pullSample();
+                try {
+                    // Run the client's test logic on the sample (only once)
+                    try {
+                        callback.accept(sample);
+                    }
+                    catch (Throwable exc) {
+                        exception = exc;
+                    }
+                    callback = null;
+                }
+                finally {
+                    synchronized (this) {
+                        notify();
+                    }
+                    sample.dispose();
+                }
+            }
+            return FlowReturn.OK;
+        }
     }
 
     private SampleTester(Consumer<Sample> callback) {
-    	ArrayList<GError> errors = new ArrayList<GError>();
-    	String pipeline_descr = "videotestsrc ! videoconvert ! appsink name=myappsink";
+        ArrayList<GError> errors = new ArrayList<GError>();
+        String pipeline_descr = "videotestsrc ! videoconvert ! appsink name=myappsink";
         Bin bin = Gst.parseBinFromDescription(pipeline_descr, false, errors);
         assertNotNull("Unable to create Bin from pipeline description: ", bin);
-        
+
         AppSink appSink = (AppSink)bin.getElementByName("myappsink");
         appSink.set("emit-signals", true);
 
         NewSampleListener sampleListener = new NewSampleListener(callback);
         appSink.connect(sampleListener);
-        
+
         bin.play();
 
         // Wait for the sample to arrive and for the client supplied test function to
         // complete
-    	try {
-	        synchronized (sampleListener) {
-	        	sampleListener.wait();
-			}
-		} catch (InterruptedException e) {
-			fail("Unexpected interruption waiting for sample");
-		}
+        try {
+            synchronized (sampleListener) {
+                sampleListener.wait();
+            }
+        } catch (InterruptedException e) {
+            fail("Unexpected interruption waiting for sample");
+        }
 
         bin.stop();
         appSink.disconnect(sampleListener);        
@@ -104,7 +104,7 @@ public class SampleTester {
         // If the test threw an exception on the sample listener thread, throw it here
         // (on the main thread)
         if (sampleListener.exception != null) {
-        	throw new AssertionError(sampleListener.exception);
+            throw new AssertionError(sampleListener.exception);
         }
     }
 }
